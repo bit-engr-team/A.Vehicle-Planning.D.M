@@ -1,12 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+from matplotlib.animation import FuncAnimation
 
 def create_map():
     # Boş bir harita oluştur
-    fig, ax = plt.subplots(figsize=(20,3))
-
-
+    fig, ax = plt.subplots(figsize=(20, 3))
     ax.set_xlim(0, 20)
     ax.set_ylim(-1.5, 1.5)
     
@@ -14,10 +13,8 @@ def create_map():
     static_obstacles = [
         patches.Rectangle((0, 1.25), 20, .5, color='black'),  # (x, y), edges
         patches.Rectangle((0, -1.75), 20, .5, color='black'),  # (x, y), edges
-
         patches.Rectangle((8, 0), 2, 1, color='black'),  # (x, y), genişlik, yükseklik
         patches.Rectangle((16, -1), 2, 1, color='black')
-
     ]
     for obstacle in static_obstacles:
         ax.add_patch(obstacle)
@@ -40,7 +37,10 @@ class Vehicle:
 
     def plot(self, ax):
         # Aracı çiz
-        ax.add_patch(patches.Rectangle((self.x-1, self.y-0.5), 2, 1, angle=np.rad2deg(self.yaw) , rotation_point="center" , color='blue'))
+        ax.add_patch(patches.Rectangle(
+            (self.x - 1, self.y - 0.5), 2, 1, angle=np.rad2deg(self.yaw),
+            rotation_point='center', color='blue'
+        ))
 
 # Parametrik eğri (aracın yapabileceği manevralar)
 def parametric_curve(vehicle, steering_angle, dt=0.1, num_steps=20):
@@ -61,16 +61,6 @@ def parametric_curve(vehicle, steering_angle, dt=0.1, num_steps=20):
 
 # Çarpışma kontrolü
 def check_collision(trajectory, obstacles):
-    """
-    Trajectory'deki her noktanın engellerle çarpışıp çarpışmadığını kontrol eder.
-    
-    Parametreler:
-        trajectory: ((x1, y1), (x2, y2), ...) şeklinde bir yörünge.
-        obstacles: Engellerin listesi (matplotlib.patches.Rectangle nesneleri).
-    
-    Returns:
-        bool: Çarpışma varsa True, yoksa False.
-    """
     for (x, y) in trajectory:
         for obstacle in obstacles:
             # Dikdörtgen engelin sınırlarını al
@@ -81,10 +71,10 @@ def check_collision(trajectory, obstacles):
             
             # Nokta dikdörtgenin içinde mi?
             if (x_min <= x <= x_max) and (y_min <= y <= y_max):
-                #print(f"Collision at ({x}, {y}) with obstacle at ({x_min}, {y_min})")
                 return True
     return False
 
+# Trajectory Rollout algoritması
 def trajectory_rollout(vehicle, goal, obstacles, dt=0.1, num_trajectories=11):
     best_trajectory = None
     best_cost = float('inf')
@@ -112,14 +102,20 @@ def trajectory_rollout(vehicle, goal, obstacles, dt=0.1, num_trajectories=11):
     
     return all_trajectories, best_trajectory, best_steering_angle
 
-
-
-def run_simulation_step(vehicle):
-    # Harita ve figürü oluştur
-    fig, ax, static_obstacles = create_map()
+# Animasyon fonksiyonu
+def animate(frame):
+    global vehicle, goal, ax, static_obstacles
     
+    # Önceki çizimleri temizle
+    ax.clear()
+    ax.set_xlim(0, 20)
+    ax.set_ylim(-1.5, 1.5)
     
-    # Trajectory Rollout ile tüm yörüngeleri ve en iyi yörüngeyi bul
+    # Haritayı yeniden çiz
+    for obstacle in static_obstacles:
+        ax.add_patch(obstacle)
+    
+    # Yeni yörüngeleri hesapla
     all_trajectories, best_trajectory, best_steering_angle = trajectory_rollout(vehicle, goal, static_obstacles)
     
     # Tüm yörüngeleri çiz
@@ -134,26 +130,26 @@ def run_simulation_step(vehicle):
     
     # Hedefi çiz
     ax.plot(goal[0], goal[1], 'go', markersize=10, label='Hedef')
-
-    # Araç ve haritayı göster
+    
+    # Aracı çiz
     vehicle.plot(ax)
-    plt.legend()
-    plt.grid()
-    plt.show()
-
-    #araç durumunu güncelle
+    
+    # Araç durumunu güncelle
     if best_trajectory:
-        part = len(best_trajectory)//3
+        part = len(best_trajectory) // 3
         for (x, y) in best_trajectory[:part]:
             vehicle.move(0.1, best_steering_angle)
+    
+    # Eğer hedefe ulaşıldıysa animasyonu durdur
+    if goal[0] - vehicle.x < 1:
+        anim.event_source.stop()
+        plt.close()
 
 # Simülasyonu başlat
-vehicle = Vehicle(1, .5, 0, 2)  # Başlangıç konumu ve hız
-goal = (19, .5)  # Hedef konumu
-for i in range(20):
-    run_simulation_step(vehicle)
-    if goal[0] - vehicle.x < 1:
-        breakq
-    
+fig, ax, static_obstacles = create_map()
+vehicle = Vehicle(1, 0.5, 0, 2)  # Başlangıç konumu ve hız
+goal = (19, 0.5)  # Hedef konumu
 
-
+# Animasyonu oluştur
+anim = FuncAnimation(fig, animate, frames=100, interval=250, repeat=False)
+plt.show()
