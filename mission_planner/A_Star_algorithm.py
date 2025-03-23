@@ -1,6 +1,7 @@
 import osmnx as ox
 import math
-import heapq  # priority queue için heapq modülünü kullanıyoruz (priority_dict ifadesinde hata aldım)
+import heapq # priority queue için heapq modülünü kullanıyoruz (priority_dict ifadesinde hata aldım)
+#import json
 
 
 # Heuristik fonksiyon: Euclidean mesafesini hesaplar
@@ -93,6 +94,33 @@ def get_path(origin_key, goal_key, predecessors):
 
     return path
 
+# JSON'la grid yapısı kullanımı
+#json_data = '''{
+ # "grid": [
+ #  [0, 1, 0, 0, 0],
+ # [0, 1, 0, 1, 0],
+ # [0, 0, 0, 1, 0],
+   # [0, 1, 1, 1, 0],
+   # [0, 0, 0, 0, 0]
+  # ],
+  #"start": [0, 0],
+  #"goal": [4, 4]
+#}'''
+
+# JSON'la ayrıştırma
+#data = json.loads(json_data)
+
+# Gridleri ve noktaları al
+#grid = data["grid"]
+#start = tuple(data["start"])
+#goal = tuple(data["goal"])
+
+#Some explanations:
+#The grid represents the environment. The 0s are walkable cells(walkable cells refer to locations in the grid or environment that the algorithm can traverse.
+ These cells are typically open or clear of obstacles,
+# meaning the algorithm can move through them to find a path from the start point to the goal.), and the 1s are blocked cells.
+#The start and goal are the points where the A* algorithm will begin and aim to reach.
+
 
 # Örnek harita ve nokta verileri
 map_graph = ox.graph_from_point(center_point=(39.78394, 32.80378), dist=2500, network_type='drive')
@@ -104,5 +132,6 @@ path = a_star_search(origin, destination, map_graph)
 
 # Yolu harita üzerinde çiz
 fig, ax = ox.plot_graph_route(map_graph, path)
+
 
 
