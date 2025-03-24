@@ -4,6 +4,7 @@ from std_msgs.msg import String, Bool
 import py_trees  
 
 # bu kod ne anlamadım
+# tum kodu mu anlamadin, belli bir parcayi mi
 
 trafik_isigi_verisi = "YEŞİL"  
 engel_var_mi = False  
