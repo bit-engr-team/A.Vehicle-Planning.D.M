@@ -2,50 +2,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.animation import FuncAnimation
-
-def create_map():
-    # Boş bir harita oluştur
-    fig, ax = plt.subplots(figsize=(20, 3.5))
-    ax.set_xlim(0, 20)
-    ax.set_ylim(-1.75, 1.75)
-    
-    # Statik engeller ekle (örneğin, dikdörtgenler)
-    static_obstacles = [
-        patches.Rectangle((0, 1.5), 20, .5, color='black'),  # (x, y), edges
-        patches.Rectangle((0, -2), 20, .5, color='black'),  # (x, y), edges
-
-        patches.Rectangle((8, .25), 2, 1, color='black'),  # vehicles
-        patches.Rectangle((16, -1.25), 2, 1, color='black')
-    ]
-    for obstacle in static_obstacles:
-        ax.add_patch(obstacle)
-    
-    return fig, ax, static_obstacles
-
-class Vehicle:
-    def __init__(self, x, y, yaw, speed):
-        self.x = x  # X konumu
-        self.y = y  # Y konumu
-        self.yaw = yaw  # Yön (radyan)
-        self.speed = speed  # Hız
-
-    def move(self, dt, steering_angle):
-        # Yönü güncelle (steering_angle'a göre)
-        self.yaw += steering_angle * dt
-        # Konumu güncelle
-        self.x += self.speed * np.cos(self.yaw) * dt
-        self.y += self.speed * np.sin(self.yaw) * dt
-
-    def plot(self, ax):
-        # Aracı çiz
-        ax.add_patch(patches.Rectangle(
-            (self.x - 1, self.y - 0.5), 2, 1, angle=np.rad2deg(self.yaw),
-            rotation_point='center', color='blue'
-        ))
+from mr_sim import *
+import time
 
 # Parametrik eğri (aracın yapabileceği manevralar)
-def parametric_curve(vehicle, steering_angle, dt=0.1, num_steps=25):
+def parametric_curve(vehicle, steering_angle, num_steps=25 ,dt=0.1):
     # Araç dinamiklerini simüle et
+
     trajectory = []
     x, y, yaw = vehicle.x, vehicle.y, vehicle.yaw
     speed = vehicle.speed
@@ -61,14 +24,15 @@ def parametric_curve(vehicle, steering_angle, dt=0.1, num_steps=25):
     return trajectory
 
 # Çarpışma kontrolü
-def check_collision(trajectory, obstacles):
-    r = .6
+def check_collision(trajectory, obstacles, radius = 0.8 ,resolution = 0.4):
+    jump = int(1/resolution)
     space = 0
-    for (x, y) in trajectory[::3]:
+
+    for (x, y) in trajectory[::jump]:
         for obstacle in obstacles:
             # Dikdörtgen engelin sınırlarını al
-            x_min = obstacle.get_x()
-            y_min = obstacle.get_y()
+            x_min = obstacle.get_x() 
+            y_min = obstacle.get_y() 
             x_max = x_min + obstacle.get_width()
             y_max = y_min + obstacle.get_height()
             
@@ -80,65 +44,90 @@ def check_collision(trajectory, obstacles):
             distance = np.hypot(x - closest_x, y - closest_y)
             
             # Mesafe dairenin yarıçapından küçükse çarpışma var
-            if distance <= r:
+            if distance <= radius:
                 return space
         space += 1
     return space
 
 # Trajectory Rollout algoritması
 
-def trajectory_rollout(vehicle, goal, obstacles, dt=0.1, num_trajectories=25):
+def trajectory_rollout(vehicle, goal, obstacles,  num_trajectories=25 , pred_range = 20 , dt=0.1):
+    all_trajectories = [] 
+
+    resolution = 0.2
+
     best_trajectory = None
     best_cost = float('inf')
-    best_steering_angle = 0  # En iyi yörüngeye ait steering açısı
+    best_steering_angle = 0
+
     best_space = 0
-    all_trajectories = []  # Tüm yörüngeleri saklamak için
-    
+
+
     # Steering açıları (aracın yapabileceği manevralar)
     steering_angles = np.linspace(-np.pi/4, np.pi/4, num_trajectories)  # -45° ile +45° arası
     
     for angle in steering_angles:
         # Parametrik eğriyi hesapla
-        trajectory = parametric_curve(vehicle, angle, dt)
+        trajectory = parametric_curve(vehicle, angle, pred_range ,dt)
+
         all_trajectories.append(trajectory)
         
         # Yörünge maliyetini hesapla (hedefe uzaklık)
-        last_point = trajectory[-1]
-        cost = np.hypot(last_point[0] - goal[0], last_point[1] - goal[1])
-        
-        space = check_collision(trajectory, obstacles)
-        print(f"{space} {best_space}")
+        cost_point = trajectory[-1]
+        dist_cost = np.hypot(cost_point[0] - goal[0], cost_point[1] - goal[1]) # minimum
+
+        space = check_collision(trajectory, obstacles , 1 ,resolution) # maximum
         # Çarpışma kontrolü // en iyi yolu seçmek colision a en uzak olan
-        if space == 9:
-            if cost < best_cost:
-                best_cost = cost
+        if best_space < space:
+            best_space = space
+            best_cost = dist_cost
+            best_trajectory = trajectory
+            best_steering_angle = angle   
+        elif best_space == space:
+            if best_cost > dist_cost:
+                best_cost = dist_cost
                 best_trajectory = trajectory
-                best_space = space
                 best_steering_angle = angle
-        elif space > best_space and space != 0:
-            if cost < best_cost:
-                best_cost = cost
-                best_trajectory = trajectory
-                best_space = space
-                best_steering_angle = angle
+
+        
     
     return all_trajectories, best_trajectory, best_steering_angle
 
 # Animasyon fonksiyonu
 def animate(frame):
-    global vehicle, goal, ax, static_obstacles
     
-    # Önceki çizimleri temizle
+    global ego_vehicle, goal, ax, counter
+
+    traj_count = 15
+    pred_range = 40
+
+    # Güncelle
     ax.clear()
-    ax.set_xlim(0, 20)
-    ax.set_ylim(-1.75, 1.75)
+    static_obstacles, nodes= create_map(ax)
     
-    # Haritayı yeniden çiz
-    for obstacle in static_obstacles:
-        ax.add_patch(obstacle)
+    npc1 = add_car(ax,(-10,1),0)
+    npc2 = add_car(ax,(0,-1),0)
+    npc3 = add_car(ax,(+10,1),0)
+
+    npc4 = add_car(ax,(-10,17),0)
+    npc5 = add_car(ax,(0,19),0)
+    npc6 = add_car(ax,(+10,17),0)
+
+    npc7 = add_car(ax,(-10,-19),0)
+    npc8 = add_car(ax,(0,-17),0)
+    npc9 = add_car(ax,(+10,-19),0)
+
+    npc10 = patches.Rectangle((19 - .7, 9 - 1.5), 1.4, 3,rotation_point='center', color='black')
+    npc11 = patches.Rectangle((-19 - .7, -9 - 1.5), 1.4, 3,rotation_point='center', color='black')
+    ax.add_patch(npc10)
+    ax.add_patch(npc11)
     
+
+    obstacles = static_obstacles + [npc1,npc2,npc3] + [npc4,npc5,npc6] + [npc7,npc8,npc9] + [npc10,npc11]
     # Yeni yörüngeleri hesapla
-    all_trajectories, best_trajectory, best_steering_angle = trajectory_rollout(vehicle, goal, static_obstacles)
+
+    all_trajectories, best_trajectory, best_steering_angle = trajectory_rollout(ego_vehicle, goal, obstacles, traj_count , pred_range,0.1)
+    
     
     # Tüm yörüngeleri çiz
     for trajectory in all_trajectories:
@@ -149,30 +138,49 @@ def animate(frame):
     if best_trajectory:
         x_best, y_best = zip(*best_trajectory)
         ax.plot(x_best, y_best, 'r--', linewidth=2, label='En İyi Yörünge')
+
     
     # Hedefi çiz
     ax.plot(goal[0], goal[1], 'go', markersize=10, label='Hedef')
     
     # Aracı çiz
-    vehicle.plot(ax)
+    ego_vehicle.plot(ax)
     
-    # Araç durumunu güncelle
-    if best_trajectory:
-        part = len(best_trajectory) // 5
-        for (x, y) in best_trajectory[:part]:
-            vehicle.move(0.1, best_steering_angle)
-    
-    # Eğer hedefe ulaşıldıysa animasyonu durdur
-    if goal[0] - vehicle.x < .1:
+    if 0 == check_collision([(ego_vehicle.x,ego_vehicle.y)],obstacles,resolution=1):
+        print("Fail")
         anim.event_source.stop()
         plt.pause(0.5)
         plt.close()
 
-# Simülasyonu başlat
-fig, ax, static_obstacles = create_map()
-vehicle = Vehicle(1, 0.75, 0, 1.5)  # Başlangıç konumu ve hız
-goal = (19, 0.5)  # Hedef konumu
+    # Araç durumunu güncelle
+    if best_trajectory:
+        part = 5#len(best_trajectory) // 5
+        for (x, y) in best_trajectory[:part]:
+            ego_vehicle.move(0.1, best_steering_angle)
+    
+    # Eğer hedefe ulaşıldıysa animasyonu durdur
+    if np.hypot(ego_vehicle.x-goal[0] , ego_vehicle.y-goal[1] )< 3:
+        counter += 1
+        print(counter)
+        if counter == 8:
+            anim.event_source.stop()
+            plt.pause(0.5)
+            plt.close()
+        goal = nodes[counter]
 
+
+# Simülasyonu başlat
+
+fig, ax = plt.subplots(figsize=(10, 10))
+
+static_obstacles , nodes = create_map(ax)
+
+ego_vehicle = Vehicle(nodes[0], np.pi, 1)  # Başlangıç konumu ve hız
+
+goal = nodes[1]  # Hedef konumu
+counter = 1
 # Animasyonu oluştur
-anim = FuncAnimation(fig, animate, frames=100, interval=250, repeat=False)
+anim = FuncAnimation(fig, animate, frames=500, interval=100, repeat=False)
 plt.show()
+anim.save('local_planner/output/trajectory_rollout.mp4', writer='ffmpeg', fps=30)
+print("end")
