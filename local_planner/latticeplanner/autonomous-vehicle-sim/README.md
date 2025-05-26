@@ -1,8 +1,8 @@
-# Autonomous Vehicle Simulation
+# Planner Simulation
 
-This project is a modular and realistic simulation of an autonomous vehicle using a lattice planner and occupancy grid mapping. The simulation includes 2.5D visualization using Matplotlib and is designed to be extensible for further development.
+This simulation is a modular and realistic simulation of an autonomous vehicle using a lattice planner and occupancy grid mapping. The simulation includes 2.5D visualization using Matplotlib and is designed to be extensible for further development.
 
-## Project Structure
+## Structure
 
 ```
 autonomous-vehicle-sim
@@ -59,11 +59,3 @@ To run the simulation, execute the following command:
 ```
 python src/main.py
 ```
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a pull request or open an issue for any enhancements or bug fixes.
-
-## License
-
-This project is licensed under the MIT License. See the LICENSE file for more details.
