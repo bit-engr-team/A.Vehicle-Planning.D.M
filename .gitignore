@@ -1,5 +1,7 @@
 #virtual environment
 venv/
 #tmp files
-output/*
-My_tmp/
+input/
+My_tmp/map.ipynb
+output/
+behavioral_planner/nodes/__pycache__
