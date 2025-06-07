@@ -34,5 +34,13 @@ Projenin bu kısmı, GNSS (küresel konumlama sistemi) verilerini kullanarak yol
 
 Notebook sonunda oluşturulan grafik, kavşakları düğüm (node), yolları ise kenar (edge) olarak temsil eder. Bu yapı, şehir ağlarının modellenmesi ve analiz edilmesi için temel bir yapı sunar.
 
+## Input ve Output Formatları
+| Tür       | Biçim / Yapı                                      |
+| --------- | ------------------------------------------------- |
+| **Girdi** | `sent_gnss.csv`: latitude, longitude, junction    |
+| **Çıktı** | `networkx.Graph`: Düğümler = junction noktaları   |
+|           | Görsel: Kavşakların bağlantı grafiği (matplotlib) |
+
+
 
 
