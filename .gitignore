@@ -5,4 +5,4 @@ input/
 My_tmp/map.ipynb
 output/
 local_planner/latticeplanner/autonomous-vehicle-sim/src/*/__pycache__
-behavioral_planner/nodes/__pycache__
+behavioral_planner/nodes_G/__pycache__
