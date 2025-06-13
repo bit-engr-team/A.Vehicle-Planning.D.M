@@ -1,5 +1,5 @@
 import py_trees
-from behavioral_planner_G.rdf_interface_G import RDFInterface_G
+from behavioral_planner.rdf_interface_G import RDFInterface_G
 
 class IsObstacleAhead_G(py_trees.behaviour.Behaviour):
     def __init__(self, rdf_interface, name="Engel var mı?"):
