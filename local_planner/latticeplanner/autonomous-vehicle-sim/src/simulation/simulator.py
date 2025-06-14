@@ -1,22 +1,19 @@
 import numpy as np
 import time
-from .environment import Environment
 
 class Simulator:
-    def __init__(self, config, vehicle, occupancy_grid, renderer=None):
+    def __init__(self, config, vehicle, occupancy_grid, renderer):
         """Initialize the simulator with flexible parameter handling"""
         self.config = config
         self.vehicle = vehicle
         self.occupancy_grid = occupancy_grid
         self.renderer = renderer
         
-        self.environment = Environment(occupancy_grid)
-        
         self.dt = config.get('dt', 0.1)
         self.max_time = config.get('max_time', 100.0)
         self.current_time = 0.0
         
-        self.running = False
+        self.running = True
         self.trajectory_history = []
         
     def add_obstacles(self):
@@ -39,74 +36,65 @@ class Simulator:
         
     def step(self):
         """Single simulation step"""
-        # Plan trajectory
-        trajectory = self.vehicle.plan_trajectory(self.occupancy_grid)
+        if not self.running or self.current_time >= self.max_time:
+            return False
         
-        # Execute control
-        self.vehicle.control(trajectory)
-        
-        # Update vehicle dynamics
-        self.vehicle.update_dynamics(self.dt)
-        
-        # Store trajectory for visualization
-        if trajectory is not None:
-            self.trajectory_history.append(trajectory.copy())
-            # Keep only recent trajectories
-            if len(self.trajectory_history) > 10:
-                self.trajectory_history.pop(0)
-                
-        # Update time
-        self.current_time += self.dt
-        
-        # Render if renderer is available
-        if self.renderer is not None:
-            self.renderer.render(self.vehicle, self.occupancy_grid, trajectory, self.current_time)
-        
-        return trajectory
-        
+        try:
+            # Plan trajectory
+            trajectory = self.vehicle.planner.plan(
+                self.vehicle.state, 
+                self.vehicle.goal, 
+                self.occupancy_grid
+            )
+            
+            # Execute control
+            self.vehicle.control(trajectory)
+            
+            # Update vehicle dynamics
+            self.vehicle.update_dynamics(self.dt)
+            
+            # Render the scene
+            if hasattr(self, 'renderer') and self.renderer:
+                self.renderer.render(
+                    self.vehicle, 
+                    self.occupancy_grid, 
+                    trajectory, 
+                    self.current_time
+                )
+            
+            # Update time
+            self.current_time += self.dt
+            
+            return True
+            
+        except Exception as e:
+            print(f"Simulation step error: {e}")
+            return False
+    
     def run(self):
         """Run the complete simulation"""
-        self.running = True
-        
-        print("Starting autonomous vehicle simulation...")
-        print(f"Goal: {self.vehicle.goal}")
+        print("Running simulation...")
         
         step_count = 0
+        max_steps = int(self.max_time / self.dt)
         
-        while self.running and self.current_time < self.max_time:
-            step_start_time = time.time()
-            
-            # Simulation step
-            trajectory = self.step()
-            
-            # Check if goal is reached
-            if self.vehicle.goal is not None:
-                distance_to_goal = np.linalg.norm(self.vehicle.state[:2] - self.vehicle.goal[:2])
-                if distance_to_goal < 2.0:
-                    print(f"Goal reached at time {self.current_time:.1f}s!")
-                    break
-                    
-            # Print progress
-            if step_count % 50 == 0:
-                print(f"Time: {self.current_time:.1f}s, "
-                      f"Position: ({self.vehicle.state[0]:.1f}, {self.vehicle.state[1]:.1f}), "
-                      f"Speed: {self.vehicle.state[3]:.1f} m/s")
-                      
+        while step_count < max_steps and self.step():
             step_count += 1
             
-            # Real-time simulation timing
-            step_time = time.time() - step_start_time
-            sleep_time = max(0, self.dt - step_time)
-            if sleep_time > 0:
-                time.sleep(sleep_time)
-                
-        print("Simulation completed!")
+            # Check if goal reached
+            if self.vehicle.goal is not None:
+                distance = np.linalg.norm(self.vehicle.state[:2] - self.vehicle.goal[:2])
+                if distance < 5.0:
+                    print(f"Goal reached after {step_count * self.dt:.1f} seconds!")
+                    break
+            
+            # Progress update every 100 steps
+            if step_count % 100 == 0:
+                print(f"Step {step_count}, Time: {step_count * self.dt:.1f}s")
         
-        # Keep visualization open
-        if self.renderer is not None:
-            input("Press Enter to close...")
-            self.renderer.close()
-        
+        print("Simulation completed.")
+        return step_count * self.dt
+
     def stop(self):
         """Stop the simulation"""
         self.running = False
